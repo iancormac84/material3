@@ -1,5 +1,5 @@
 use indexmap::{IndexMap, IndexSet};
-use material_color_utils::{
+use material3::{
     quantize::{wu::QuantizerWu, Quantizer},
     score,
 };
