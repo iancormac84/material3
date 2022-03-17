@@ -44,13 +44,11 @@ pub fn argb_from_rgb(red: u32, green: u32, blue: u32) -> u32 {
 }
 
 /// Returns the XYZ to sRGB transformation matrix.
-pub fn xyz_to_srgb() -> [[f64; 3]; 3] {
-    [
-        [3.2406, -1.5372, -0.4986],
-        [-0.9689, 1.8758, 0.0415],
-        [0.0557, -0.204, 1.057],
-    ]
-}
+pub const XYZ_TO_SRGB: [[f64; 3]; 3] = [
+    [3.2406, -1.5372, -0.4986],
+    [-0.9689, 1.8758, 0.0415],
+    [0.0557, -0.204, 1.057],
+];
 
 /// Converts a color from ARGB to XYZ.
 pub fn xyz_from_argb(argb: u32) -> [f64; 3] {
@@ -58,12 +56,12 @@ pub fn xyz_from_argb(argb: u32) -> [f64; 3] {
     let g = linearized(green_from_argb(argb));
     let b = linearized(blue_from_argb(argb));
 
-    matrix_multiply([r, g, b], srgb_to_xyz())
+    matrix_multiply([r, g, b], SRGB_TO_XYZ)
 }
 
 /// Converts a color from XYZ to ARGB.
 pub fn argb_from_xyz(x: f64, y: f64, z: f64) -> u32 {
-    let linear_rgb = matrix_multiply([x, y, z], xyz_to_srgb());
+    let linear_rgb = matrix_multiply([x, y, z], XYZ_TO_SRGB);
     let r = delinearized(linear_rgb[0]);
     let g = delinearized(linear_rgb[1]);
     let b = delinearized(linear_rgb[2]);
@@ -106,13 +104,11 @@ pub fn delinearized(rgb_component: f64) -> u32 {
 }
 
 /// Returns the sRGB to XYZ transformation matrix.
-pub fn srgb_to_xyz() -> [[f64; 3]; 3] {
-    [
-        [0.41233895, 0.35762064, 0.18051042],
-        [0.2126, 0.7152, 0.0722],
-        [0.01932141, 0.11916382, 0.95034478],
-    ]
-}
+pub const SRGB_TO_XYZ: [[f64; 3]; 3] = [
+    [0.41233895, 0.35762064, 0.18051042],
+    [0.2126, 0.7152, 0.0722],
+    [0.01932141, 0.11916382, 0.95034478],
+];
 
 /// Converts an L* value to an ARGB representation.
 ///
@@ -143,8 +139,7 @@ pub fn argb_from_lstar(lstar: f64) -> u32 {
     } else {
         lstar / kappa
     };
-    let white_point = white_point_d65();
-    argb_from_xyz(x * white_point[0], y * white_point[1], z * white_point[2])
+    argb_from_xyz(x * WHITE_POINT_D65[0], y * WHITE_POINT_D65[1], z * WHITE_POINT_D65[2])
 }
 
 /// Computes the L* value of a color in ARGB representation.
@@ -169,23 +164,20 @@ pub fn lstar_from_argb(argb: u32) -> f64 {
 ///
 ///
 /// Returns The white point
-pub fn white_point_d65() -> [f64; 3] {
-    [95.047, 100.0, 108.883]
-}
+pub const WHITE_POINT_D65: [f64; 3] = [95.047, 100.0, 108.883];
 
 /// Converts a color represented in Lab color space into an ARGB
 /// integer.
 pub fn argb_from_lab(l: f64, a: f64, b: f64) -> u32 {
-    let white_point = white_point_d65();
     let fy = (l + 16.0) / 116.0;
     let fx = a / 500.0 + fy;
     let fz = fy - b / 200.0;
     let x_normalized = lab_inv_f(fx);
     let y_normalized = lab_inv_f(fy);
     let z_normalized = lab_inv_f(fz);
-    let x = x_normalized * white_point[0];
-    let y = y_normalized * white_point[1];
-    let z = z_normalized * white_point[2];
+    let x = x_normalized * WHITE_POINT_D65[0];
+    let y = y_normalized * WHITE_POINT_D65[1];
+    let z = z_normalized * WHITE_POINT_D65[2];
     argb_from_xyz(x, y, z)
 }
 
@@ -196,11 +188,10 @@ pub fn argb_from_lab(l: f64, a: f64, b: f64) -> u32 {
 /// `argb` the ARGB representation of a color
 /// Returns a Lab object representing the color
 pub fn lab_from_argb(argb: u32) -> [f64; 3] {
-    let white_point = white_point_d65();
     let xyz = xyz_from_argb(argb);
-    let x_normalized = xyz[0] / white_point[0];
-    let y_normalized = xyz[1] / white_point[1];
-    let z_normalized = xyz[2] / white_point[2];
+    let x_normalized = xyz[0] / WHITE_POINT_D65[0];
+    let y_normalized = xyz[1] / WHITE_POINT_D65[1];
+    let z_normalized = xyz[2] / WHITE_POINT_D65[2];
     let fx = lab_f(x_normalized);
     let fy = lab_f(y_normalized);
     let fz = lab_f(z_normalized);
