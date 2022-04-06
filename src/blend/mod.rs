@@ -122,7 +122,7 @@ mod test {
     #[test]
     fn blue_to_red() {
         let answer = harmonize(BLUE, RED);
-        assert_eq!(answer, 0xff5600DF);
+        assert_eq!(answer, 0xff5600DE);
     }
 
     #[test]
