@@ -12,7 +12,7 @@ fn _range(start: f64, stop: f64, case_count: usize) -> Vec<f64> {
 fn rgb_range() -> Vec<u32> {
     _range(0.0, 255.0, 8)
         .into_iter()
-        .map(|element| element as u32)
+        .map(|element| element.round() as u32)
         .collect()
 }
 

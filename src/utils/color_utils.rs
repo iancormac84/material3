@@ -275,7 +275,7 @@ mod test {
     fn rgb_range() -> Vec<u32> {
         _range(0.0, 255.0, 8)
             .into_iter()
-            .map(|element| element as u32)
+            .map(|element| element.round() as u32)
             .collect()
     }
 
