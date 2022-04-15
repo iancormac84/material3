@@ -1,28 +1,39 @@
-use indexmap::{IndexMap, IndexSet};
-use material3::{
-    quantize::{wu::QuantizerWu, Quantizer},
-    score,
+use material3::utils::color_utils::{
+    argb_from_rgb, argb_from_xyz, blue_from_argb, green_from_argb, red_from_argb, xyz_from_argb,
 };
 
-const RED: u32 = 0xffff0000;
-const GREEN: u32 = 0xff00ff00;
-const BLUE: u32 = 0xff0000ff;
-const MAX_COLORS: u32 = 256;
+fn _range(start: f64, stop: f64, case_count: usize) -> Vec<f64> {
+    let step_size = (stop - start) / (case_count - 1) as f64;
+    (0..case_count)
+        .map(|index| start + step_size * index as f64)
+        .collect()
+}
+
+fn rgb_range() -> Vec<u32> {
+    _range(0.0, 255.0, 8)
+        .into_iter()
+        .map(|element| element as u32)
+        .collect()
+}
 
 fn main() {
-    let mut wu = QuantizerWu::new();
-    let pixels = vec![RED, GREEN, BLUE];
-    let result = wu.quantize(&pixels, MAX_COLORS);
-    let colors: Vec<u32> = result.color_to_count.keys().copied().collect();
-    let color_set: IndexSet<u32> = colors.iter().map(|color| *color).collect();
-    println!("color_set.len() is {}", color_set.len());
-    println!("colors is {:?}", colors);
-
-    let mut colors_to_population = IndexMap::new();
-    colors_to_population.insert(0xffff0000, 1);
-    colors_to_population.insert(0xff00ff00, 1);
-    colors_to_population.insert(0xff0000ff, 1);
-
-    let ranked = score(colors_to_population, 4, true);
-    println!("ranked is {:?}", ranked);
+    let r_range = rgb_range();
+    let g_range = r_range.clone();
+    let b_range = r_range.clone();
+    for r in r_range {
+        for g in &g_range {
+            for b in &b_range {
+                let argb = argb_from_rgb(r, *g, *b);
+                let xyz = xyz_from_argb(argb);
+                let converted = argb_from_xyz(xyz[0], xyz[1], xyz[2]);
+                println!("converted is {converted}");
+                let converted_red_from_argb = red_from_argb(converted);
+                let converted_green_from_argb = green_from_argb(converted);
+                let converted_blue_from_argb = blue_from_argb(converted);
+                println!("r is {r} and converted_red_from_argb is {converted_red_from_argb}");
+                println!("g is {g} and converted_green_from_argb is {converted_green_from_argb}");
+                println!("b is {b} and converted_blue_from_argb is {converted_blue_from_argb}");
+            }
+        }
+    }
 }

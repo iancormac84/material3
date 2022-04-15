@@ -14,7 +14,7 @@ pub fn y_from_lstar(lstar: f64) -> f64 {
     if lstar > ke {
         ((lstar + 16.0) / 116.0).powf(3.0) * 100.0
     } else {
-        lstar / 24389.0 / 27.0 * 100.0
+        lstar / (24389.0 / 27.0) * 100.0
     }
 }
 
@@ -46,19 +46,15 @@ pub fn argb_from_rgb(red: u32, green: u32, blue: u32) -> u32 {
 /// Returns the XYZ to sRGB transformation matrix.
 pub const XYZ_TO_SRGB: [[f64; 3]; 3] = [
     [
-      3.2413774792388685,
-      -1.5376652402851851,
-      -0.49885366846268053,
+        3.2413774792388685,
+        -1.5376652402851851,
+        -0.49885366846268053,
     ],
+    [-0.9691452513005321, 1.8758853451067872, 0.04156585616912061],
     [
-      -0.9691452513005321,
-      1.8758853451067872,
-      0.04156585616912061,
-    ],
-    [
-      0.05562093689691305,
-      -0.20395524564742123,
-      1.0571799111220335,
+        0.05562093689691305,
+        -0.20395524564742123,
+        1.0571799111220335,
     ],
 ];
 
@@ -73,10 +69,12 @@ pub fn xyz_from_argb(argb: u32) -> [f64; 3] {
 
 /// Converts a color from XYZ to ARGB.
 pub fn argb_from_xyz(x: f64, y: f64, z: f64) -> u32 {
-    let linear_rgb = matrix_multiply([x, y, z], XYZ_TO_SRGB);
-    let r = delinearized(linear_rgb[0]);
-    let g = delinearized(linear_rgb[1]);
-    let b = delinearized(linear_rgb[2]);
+    let linear_r = XYZ_TO_SRGB[0][0] * x + XYZ_TO_SRGB[0][1] * y + XYZ_TO_SRGB[0][2] * z;
+    let linear_g = XYZ_TO_SRGB[1][0] * x + XYZ_TO_SRGB[1][1] * y + XYZ_TO_SRGB[1][2] * z;
+    let linear_b = XYZ_TO_SRGB[2][0] * x + XYZ_TO_SRGB[2][1] * y + XYZ_TO_SRGB[2][2] * z;
+    let r = delinearized(linear_r);
+    let g = delinearized(linear_g);
+    let b = delinearized(linear_b);
     argb_from_rgb(r, g, b)
 }
 
@@ -151,7 +149,11 @@ pub fn argb_from_lstar(lstar: f64) -> u32 {
     } else {
         lstar / kappa
     };
-    argb_from_xyz(x * WHITE_POINT_D65[0], y * WHITE_POINT_D65[1], z * WHITE_POINT_D65[2])
+    argb_from_xyz(
+        x * WHITE_POINT_D65[0],
+        y * WHITE_POINT_D65[1],
+        z * WHITE_POINT_D65[2],
+    )
 }
 
 /// Computes the L* value of a color in ARGB representation.
@@ -200,10 +202,18 @@ pub fn argb_from_lab(l: f64, a: f64, b: f64) -> u32 {
 /// `argb` the ARGB representation of a color
 /// Returns a Lab object representing the color
 pub fn lab_from_argb(argb: u32) -> [f64; 3] {
-    let xyz = xyz_from_argb(argb);
-    let x_normalized = xyz[0] / WHITE_POINT_D65[0];
-    let y_normalized = xyz[1] / WHITE_POINT_D65[1];
-    let z_normalized = xyz[2] / WHITE_POINT_D65[2];
+    let linear_r = linearized(red_from_argb(argb));
+    let linear_g = linearized(green_from_argb(argb));
+    let linear_b = linearized(blue_from_argb(argb));
+    let x =
+        SRGB_TO_XYZ[0][0] * linear_r + SRGB_TO_XYZ[0][1] * linear_g + SRGB_TO_XYZ[0][2] * linear_b;
+    let y =
+        SRGB_TO_XYZ[1][0] * linear_r + SRGB_TO_XYZ[1][1] * linear_g + SRGB_TO_XYZ[1][2] * linear_b;
+    let z =
+        SRGB_TO_XYZ[2][0] * linear_r + SRGB_TO_XYZ[2][1] * linear_g + SRGB_TO_XYZ[2][2] * linear_b;
+    let x_normalized = x / WHITE_POINT_D65[0];
+    let y_normalized = y / WHITE_POINT_D65[1];
+    let z_normalized = z / WHITE_POINT_D65[2];
     let fx = lab_f(x_normalized);
     let fy = lab_f(y_normalized);
     let fz = lab_f(z_normalized);
@@ -231,5 +241,137 @@ fn lab_inv_f(ft: f64) -> f64 {
         ft3
     } else {
         (116.0 * ft - 16.0) / kappa
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use approx_eq::assert_approx_eq;
+
+    use crate::utils::color_utils::{
+        argb_from_lab, argb_from_lstar, argb_from_rgb, argb_from_xyz, blue_from_argb, delinearized,
+        green_from_argb, lab_from_argb, linearized, lstar_from_argb, red_from_argb, xyz_from_argb,
+        y_from_lstar,
+    };
+
+    fn _lstar_from_y(y: f64) -> f64 {
+        let scaled_y = y / 100.0;
+        let e = 216.0 / 24389.0;
+        if scaled_y <= e {
+            24389.0 / 27.0 * scaled_y
+        } else {
+            let y_intermediate = scaled_y.powf(1.0 / 3.0);
+            116.0 * y_intermediate - 16.0
+        }
+    }
+
+    fn _range(start: f64, stop: f64, case_count: usize) -> Vec<f64> {
+        let step_size = (stop - start) / (case_count - 1) as f64;
+        (0..case_count)
+            .map(|index| start + step_size * index as f64)
+            .collect()
+    }
+
+    fn rgb_range() -> Vec<u32> {
+        _range(0.0, 255.0, 8)
+            .into_iter()
+            .map(|element| element as u32)
+            .collect()
+    }
+
+    fn full_rgb_range() -> Vec<u32> {
+        (0..256).collect()
+    }
+
+    #[test]
+    fn range_integrity() {
+        let range = _range(3.0, 9999.0, 1234);
+        for i in 0..1234 {
+            assert_approx_eq!(range[i], 3.0 + 8.1070559611 * i as f64, 1e-5);
+        }
+    }
+
+    #[test]
+    fn y_to_lstar_to_y() {
+        let y_range = _range(0.0, 100.0, 1001);
+        for y in y_range {
+            assert_approx_eq!(y_from_lstar(_lstar_from_y(y)), y, 1e-5);
+        }
+    }
+
+    #[test]
+    fn lstar_to_y_to_lstar() {
+        let lstar_range = _range(0.0, 100.0, 1001);
+        for lstar in lstar_range {
+            assert_approx_eq!(_lstar_from_y(y_from_lstar(lstar)), lstar, 1e-5);
+        }
+    }
+
+    #[test]
+    fn y_continuity() {
+        let delta = 1e-8;
+        let left = 8.0 - delta;
+        let mid = 8.0;
+        let right = 8.0 + delta;
+        assert_approx_eq!(y_from_lstar(left), y_from_lstar(mid));
+        assert_approx_eq!(y_from_lstar(right), y_from_lstar(mid));
+    }
+
+    #[test]
+    fn rgb_to_xyz_to_rgb() {
+        let r_range = rgb_range();
+        let g_range = r_range.clone();
+        let b_range = r_range.clone();
+        for r in r_range {
+            for g in &g_range {
+                for b in &b_range {
+                    let argb = argb_from_rgb(r, *g, *b);
+                    let xyz = xyz_from_argb(argb);
+                    let converted = argb_from_xyz(xyz[0], xyz[1], xyz[2]);
+                    assert_approx_eq!(red_from_argb(converted) as f64, r as f64, 1.5);
+                    assert_approx_eq!(green_from_argb(converted) as f64, *g as f64, 1.5);
+                    assert_approx_eq!(blue_from_argb(converted) as f64, *b as f64, 1.5);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn rgb_to_lab_to_rgb() {
+        let r_range = rgb_range();
+        let g_range = r_range.clone();
+        let b_range = r_range.clone();
+        for r in r_range {
+            for g in &g_range {
+                for b in &b_range {
+                    let argb = argb_from_rgb(r, *g, *b);
+                    let lab = lab_from_argb(argb);
+                    let converted = argb_from_lab(lab[0], lab[1], lab[2]);
+                    assert_approx_eq!(red_from_argb(converted) as f64, r as f64, 1.5);
+                    assert_approx_eq!(green_from_argb(converted) as f64, *g as f64, 1.5);
+                    assert_approx_eq!(blue_from_argb(converted) as f64, *b as f64, 1.5);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn rgb_to_lstar_to_rgb() {
+        let rgb_range = full_rgb_range();
+        for component in rgb_range {
+            let argb = argb_from_rgb(component, component, component);
+            let lstar = lstar_from_argb(argb);
+            let converted = argb_from_lstar(lstar);
+            assert_eq!(converted, argb);
+        }
+    }
+
+    #[test]
+    fn linearize_delinearize() {
+        let rgb_range = full_rgb_range();
+        for rgb_component in rgb_range {
+            let converted = delinearized(linearized(rgb_component));
+            assert_eq!(converted, rgb_component);
+        }
     }
 }
