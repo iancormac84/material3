@@ -10,12 +10,7 @@ use super::math_utils::{clamp_int, matrix_multiply};
 ///
 /// Returns Y in XYZ
 pub fn y_from_lstar(lstar: f64) -> f64 {
-    let ke = 8.0;
-    if lstar > ke {
-        ((lstar + 16.0) / 116.0).powf(3.0) * 100.0
-    } else {
-        lstar / (24389.0 / 27.0) * 100.0
-    }
+    100.0 * lab_inv_f((lstar + 16.0) / 116.0)
 }
 
 /// Returns the alpha component of a color in ARGB format.
@@ -41,6 +36,14 @@ pub fn blue_from_argb(argb: u32) -> u32 {
 /// Converts a color from RGB components to ARGB format.
 pub fn argb_from_rgb(red: u32, green: u32, blue: u32) -> u32 {
     255 << 24 | (red & 255) << 16 | (green & 255) << 8 | blue & 255
+}
+
+/// Converts a color from linear RGB components to ARGB format.
+pub fn argb_from_linrgb(linrgb: [f64; 3]) -> u32 {
+    let r = delinearized(linrgb[0]);
+    let g = delinearized(linrgb[1]);
+    let b = delinearized(linrgb[2]);
+    argb_from_rgb(r, g, b)
 }
 
 /// Returns the XYZ to sRGB transformation matrix.
@@ -127,33 +130,9 @@ pub const SRGB_TO_XYZ: [[f64; 3]; 3] = [
 /// Returns ARGB representation of grayscale color with lightness
 /// matching L*
 pub fn argb_from_lstar(lstar: f64) -> u32 {
-    let fy = (lstar + 16.0) / 116.0;
-    let fz = fy;
-    let fx = fy;
-    let kappa = 24389.0 / 27.0;
-    let epsilon = 216.0 / 24389.0;
-    let l_exceeds_epsilon_kappa = lstar > 8.0;
-    let y = if l_exceeds_epsilon_kappa {
-        fy * fy * fy
-    } else {
-        lstar / kappa
-    };
-    let cube_exceed_epsilon = fy * fy * fy > epsilon;
-    let x = if cube_exceed_epsilon {
-        fx * fx * fx
-    } else {
-        lstar / kappa
-    };
-    let z = if cube_exceed_epsilon {
-        fz * fz * fz
-    } else {
-        lstar / kappa
-    };
-    argb_from_xyz(
-        x * WHITE_POINT_D65[0],
-        y * WHITE_POINT_D65[1],
-        z * WHITE_POINT_D65[2],
-    )
+    let y = y_from_lstar(lstar);
+    let component = delinearized(y);
+    argb_from_rgb(component, component, component)
 }
 
 /// Computes the L* value of a color in ARGB representation.
@@ -162,16 +141,8 @@ pub fn argb_from_lstar(lstar: f64) -> u32 {
 /// `argb` ARGB representation of a color
 /// Returns L*, from L*a*b*, coordinate of the color
 pub fn lstar_from_argb(argb: u32) -> f64 {
-    let y = xyz_from_argb(argb)[1] / 100.0;
-
-    let e = 216.0 / 24389.0;
-    if y <= e {
-        24389.0 / 27.0 * y
-    } else {
-        let y_intermediate = y.powf(1.0 / 3.0);
-
-        116.0 * y_intermediate - 16.0
-    }
+    let y = xyz_from_argb(argb)[1];
+    116.0 * lab_f(y / 100.0) - 16.0
 }
 
 /// Returns the standard white point; white on a sunny day.
@@ -363,6 +334,31 @@ mod test {
             let lstar = lstar_from_argb(argb);
             let converted = argb_from_lstar(lstar);
             assert_eq!(converted, argb);
+        }
+    }
+
+    #[test]
+    fn rgb_to_lstar_to_y_commutes() {
+        for r in rgb_range() {
+            for g in rgb_range() {
+                for b in rgb_range() {
+                    let argb = argb_from_rgb(r, g, b);
+                    let lstar = lstar_from_argb(argb);
+                    let y = y_from_lstar(lstar);
+                    let y2 = xyz_from_argb(argb)[1];
+                    assert_approx_eq!(y, y2, 1e-5);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn lstar_to_rgb_to_y_commutes() {
+        for lstar in _range(0.0, 100.0, 1001) {
+            let argb = argb_from_lstar(lstar);
+            let y = xyz_from_argb(argb)[1];
+            let y2 = y_from_lstar(lstar);
+            assert_approx_eq!(y, y2, 1.0);
         }
     }
 

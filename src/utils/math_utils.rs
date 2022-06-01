@@ -82,7 +82,66 @@ pub fn sanitize_degrees_int(degrees: i16) -> u16 {
     degrees as u16
 }
 
+/// Sign of direction change needed to travel from one angle to
+/// another.
+///
+/// For angles that are 180 degrees apart from each other, both
+/// directions have the same travel distance, so either direction is
+/// shortest. The value 1.0 is returned in this case.
+///
+/// [from] The angle travel starts from, in degrees.
+/// [to] The angle travel ends at, in degrees.
+/// Returns -1 if decreasing from leads to the shortest travel
+/// distance, 1 if increasing from leads to the shortest travel
+/// distance.
+pub fn rotation_direction(from: f64, to: f64) -> f64 {
+    let increasing_difference = sanitize_degrees_double(to - from);
+    if increasing_difference <= 180.0 {
+        1.0
+    } else {
+        -1.0
+    }
+}
+
 /// Distance of two points on a circle, represented using degrees.
 pub fn calculate_difference_degrees(a: f64, b: f64) -> f64 {
     180.0 - ((a - b).abs() - 180.0).abs()
+}
+
+#[cfg(test)]
+mod test {
+    /// Sign of direction change needed to travel from one angle to another.
+    ///
+    /// `from` is the angle travel starts from in degrees. `to` is the ending
+    /// angle, also in degrees.
+    ///
+    /// The return value is -1 if decreasing `from` leads to the shortest travel
+    /// distance,  1 if increasing from leads to the shortest travel distance.
+    fn rotation_direction(from: f64, to: f64) -> f64 {
+        let a = to - from;
+        let b = to - from + 360.0;
+        let c = to - from - 360.0;
+
+        let a_abs = a.abs();
+        let b_abs = b.abs();
+        let c_abs = c.abs();
+
+        if a_abs <= b_abs && a_abs <= c_abs {
+            if a >= 0.0 {
+                1.0
+            } else {
+                -1.0
+            }
+        } else if b_abs <= a_abs && b_abs <= c_abs {
+            if b >= 0.0 {
+                1.0
+            } else {
+                -1.0
+            }
+        } else if c >= 0.0 {
+            1.0
+        } else {
+            -1.0
+        }
+    }
 }

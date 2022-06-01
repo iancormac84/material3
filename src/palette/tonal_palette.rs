@@ -130,16 +130,17 @@ mod test {
         let mut blue = TonalPalette::from_int(0xff0000ff);
 
         assert_eq!(blue.tone(100), Ok(0xffffffff));
-        assert_eq!(blue.tone(95), Ok(0xfff0efff));
-        assert_eq!(blue.tone(90), Ok(0xffdfe0ff));
-        assert_eq!(blue.tone(80), Ok(0xffbdc2ff));
-        assert_eq!(blue.tone(70), Ok(0xff9ca4ff));
-        assert_eq!(blue.tone(60), Ok(0xff7a85ff));
-        assert_eq!(blue.tone(50), Ok(0xff5964ff));
-        assert_eq!(blue.tone(40), Ok(0xff333cff));
-        assert_eq!(blue.tone(30), Ok(0xff0000f0));
-        assert_eq!(blue.tone(20), Ok(0xff0000ad));
-        assert_eq!(blue.tone(10), Ok(0xff00006f));
+        assert_eq!(blue.tone(99), Ok(0xfffffbff));
+        assert_eq!(blue.tone(95), Ok(0xfff1efff));
+        assert_eq!(blue.tone(90), Ok(0xffe0e0ff));
+        assert_eq!(blue.tone(80), Ok(0xffbec2ff));
+        assert_eq!(blue.tone(70), Ok(0xff9da3ff));
+        assert_eq!(blue.tone(60), Ok(0xff7c84ff));
+        assert_eq!(blue.tone(50), Ok(0xff5a64ff));
+        assert_eq!(blue.tone(40), Ok(0xff343dff));
+        assert_eq!(blue.tone(30), Ok(0xff0000ef));
+        assert_eq!(blue.tone(20), Ok(0xff0001ac));
+        assert_eq!(blue.tone(10), Ok(0xff00006e));
         assert_eq!(blue.tone(0), Ok(0xff000000));
 
         assert_eq!(blue.tone(3), Ok(0xff00003e));
@@ -153,8 +154,8 @@ mod test {
         assert_eq!(
             tones.as_list(),
             [
-                0xff000000, 0xff00006f, 0xff0000ad, 0xff0000f0, 0xff333cff, 0xff5964ff, 0xff7a85ff,
-                0xff9ca4ff, 0xffbdc2ff, 0xffdfe0ff, 0xfff0efff, 0xfffefbff, 0xffffffff,
+                0xff000000, 0xff00006e, 0xff0001ac, 0xff0000ef, 0xff343dff, 0xff5a64ff, 0xff7c84ff,
+                0xff9da3ff, 0xffbec2ff, 0xffe0e0ff, 0xfff1efff, 0xfffffbff, 0xffffffff,
             ]
         );
     }
