@@ -28,6 +28,23 @@ impl CorePalette {
         }
     }
 
+    /// Create a content [CorePalette] from a source ARGB color.
+    pub fn content_of(argb: u32) -> CorePalette {
+        let cam = Cam16::from_int(argb);
+        CorePalette::_content_of(cam.hue, cam.chroma)
+    }
+
+    fn _content_of(hue: f64, chroma: f64) -> CorePalette {
+        CorePalette {
+            primary: TonalPalette::of(hue, chroma),
+            secondary: TonalPalette::of(hue, chroma / 3.0),
+            tertiary: TonalPalette::of(hue + 60.0, chroma / 2.0),
+            neutral: TonalPalette::of(hue, (chroma / 12.0).min(4.0)),
+            neutral_variant: TonalPalette::of(hue, (chroma / 6.0).min(8.0)),
+            error: TonalPalette::of(25.0, 84.0),
+        }
+    }
+
     /// Create a [`CorePalette`] from a fixed-size list of ARGB color ints
     /// representing concatenated tonal palettes.
     ///

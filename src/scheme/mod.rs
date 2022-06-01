@@ -175,13 +175,13 @@ mod test {
     #[test]
     fn blue_light_scheme() {
         let scheme = Scheme::light(0xff0000ff);
-        assert_eq!(scheme.primary, 0xff333CFF);
+        assert_eq!(scheme.primary, 0xff343DFF);
     }
 
     #[test]
     fn blue_dark_scheme() {
         let scheme = Scheme::dark(0xff0000ff);
-        assert_eq!(scheme.primary, 0xffBDC2FF);
+        assert_eq!(scheme.primary, 0xffBEC2FF);
     }
 
     #[test]
@@ -189,18 +189,18 @@ mod test {
         let scheme = Scheme::light(0xff6750A4);
         assert_eq!(scheme.primary, 0xff6750A4);
         assert_eq!(scheme.secondary, 0xff625B71);
-        assert_eq!(scheme.tertiary, 0xff7D5260);
-        assert_eq!(scheme.surface, 0xfffffbfe);
+        assert_eq!(scheme.tertiary, 0xff7E5260);
+        assert_eq!(scheme.surface, 0xffFFFBFF);
         assert_eq!(scheme.on_surface, 0xff1C1B1E);
     }
 
     #[test]
     fn third_party_dark_scheme() {
         let scheme = Scheme::dark(0xff6750A4);
-        assert_eq!(scheme.primary, 0xffd0bcff);
+        assert_eq!(scheme.primary, 0xffCFBCFF);
         assert_eq!(scheme.secondary, 0xffCBC2DB);
         assert_eq!(scheme.tertiary, 0xffEFB8C8);
         assert_eq!(scheme.surface, 0xff1c1b1e);
-        assert_eq!(scheme.on_surface, 0xffE6E1E5);
+        assert_eq!(scheme.on_surface, 0xffE6E1E6);
     }
 }

@@ -143,7 +143,7 @@ mod test {
         assert_eq!(blue.tone(10), Ok(0xff00006e));
         assert_eq!(blue.tone(0), Ok(0xff000000));
 
-        assert_eq!(blue.tone(3), Ok(0xff00003e));
+        assert_eq!(blue.tone(3), Ok(0xff00003c));
     }
 
     #[test]
