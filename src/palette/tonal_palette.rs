@@ -70,12 +70,13 @@ impl TonalPalette {
     ///
     /// Inverse of [`TonalPalette::as_list`].
     pub fn from_list(colors: &[u32]) -> TonalPalette {
-        let msg = format!(
+        assert_eq!(
+            colors.len(),
+            Self::COMMON_SIZE,
             "colors.len() is {} while COMMON_SIZE is {}",
             colors.len(),
             Self::COMMON_SIZE
         );
-        assert_eq!(colors.len(), Self::COMMON_SIZE, "{}", &msg);
         let mut cache = IndexMap::new();
         for (index, tone) in Self::COMMON_TONES.iter().enumerate() {
             cache.insert(*tone, colors[index]);
@@ -91,11 +92,15 @@ impl TonalPalette {
     /// must be one of the values present in [`TonalPalette::COMMON_TONES`].
     pub fn tone(&mut self, tone_value: u32) -> std::result::Result<u32, ArgumentError> {
         if self.hue.is_none() || self.chroma.is_none() {
-            if !self.cache.contains_key(&tone_value) {
-                let err_arg = ArgumentError::new(format!("Invalid argument (tone: {}): When a TonalPalette is created with TonalPalette::from_list, tone must be one of {:?}", tone_value, Self::COMMON_TONES));
-                return Err(err_arg);
-            } else {
-                return Ok(*self.cache.get(&tone_value).unwrap());
+            let cached_tone = self.cache.get(&tone_value);
+            match cached_tone {
+                None => {
+                    let err_arg = ArgumentError::new(format!("Invalid argument (tone: {}): When a TonalPalette is created with TonalPalette::from_list, tone must be one of {:?}", tone_value, Self::COMMON_TONES));
+                    return Err(err_arg);
+                }
+                Some(cached_tone) => {
+                    return Ok(*cached_tone);
+                }
             }
         }
         let chroma = if tone_value as f64 >= 90.0 {

@@ -365,38 +365,40 @@ fn is_bounded(x: f64) -> bool {
     0.0 <= x && x <= 100.0
 }
 
-/// Returns the intersections of a plane with the RGB cube.
-///
-/// Returns a list of points where the plane (where all colors have the Y
-/// value [y]) intersects with the edges of the RGB cube,
-/// in linear RGB coordinates.
-fn edge_points(y: f64) -> Vec<[f64; 3]> {
+/// Given a plane Y = [y] and an zero-based index [n] such that 0
+/// <= [n] <= 11, returns the nth possible vertex of the polygonal
+/// intersection of the plane and the RGB cube, in linear RGB
+/// coordinates, if it exists.
+/// If this possible vertex lies outside of the cube, [-1.0, -1.0,
+/// -1.0] is returned.
+fn nth_vertex(y: f64, n: u32) -> [f64; 3] {
     let k_r = Y_FROM_LINRGB[0];
     let k_g = Y_FROM_LINRGB[1];
     let k_b = Y_FROM_LINRGB[2];
-    let points = [
-        [y / k_r, 0.0, 0.0],
-        [(y - 100.0 * k_b) / k_r, 0.0, 100.0],
-        [(y - 100.0 * k_g) / k_r, 100.0, 0.0],
-        [(y - 100.0 * k_b - 100.0 * k_g) / k_r, 100.0, 100.0],
-        [0.0, y / k_g, 0.0],
-        [100.0, (y - 100.0 * k_r) / k_g, 0.0],
-        [0.0, (y - 100.0 * k_b) / k_g, 100.0],
-        [100.0, (y - 100.0 * k_r - 100.0 * k_b) / k_g, 100.0],
-        [0.0, 0.0, y / k_b],
-        [100.0, 0.0, (y - 100.0 * k_r) / k_b],
-        [0.0, 100.0, (y - 100.0 * k_g) / k_b],
-        [100.0, 100.0, (y - 100.0 * k_r - 100.0 * k_g) / k_b],
-    ];
-
-    let mut ans = vec![];
-    for point in points {
-        if is_bounded(point[0]) && is_bounded(point[1]) && is_bounded(point[2]) {
-            ans.push(point);
+    let coord_a = if n % 4 <= 1 { 0.0 } else { 100.0 };
+    let coord_b = if n % 2 == 0 { 0.0 } else { 100.0 };
+    if n < 4 {
+        let r = (y - coord_a * k_g - coord_b * k_b) / k_r;
+        if is_bounded(r) {
+            return [r, coord_a, coord_b];
+        } else {
+            return [-1.0, -1.0, -1.0];
+        }
+    } else if n < 8 {
+        let g = (y - coord_b * k_r - coord_a * k_b) / k_g;
+        if is_bounded(g) {
+            return [coord_b, g, coord_a];
+        } else {
+            return [-1.0, -1.0, -1.0];
+        }
+    } else {
+        let b = (y - coord_a * k_r - coord_b * k_g) / k_b;
+        if is_bounded(b) {
+            return [coord_a, coord_b, b];
+        } else {
+            return [-1.0, -1.0, -1.0];
         }
     }
-
-    ans
 }
 
 /// Finds the segment containing the desired color.
@@ -405,15 +407,26 @@ fn edge_points(y: f64) -> Vec<[f64; 3]> {
 /// corresponding to an endpoint of the segment containing the
 /// color with the desired Y value [y] and the hue [target_hue].
 fn bisect_to_segment(y: f64, target_hue: f64) -> [[f64; 3]; 2] {
-    let vertices = edge_points(y);
-    let mut left = vertices[0];
+    let mut left = [-1.0, -1.0, -1.0];
     let mut right = left;
-    let mut left_hue = hue_of(left);
-    let mut right_hue = left_hue;
+    let mut left_hue = 0.0;
+    let mut right_hue = 0.0;
+    let mut initialized = false;
     let mut uncut = true;
-    for i in 1..vertices.len() {
-        let mid = vertices[i];
+    for n in 0..12 {
+        let mid = nth_vertex(y, n);
+        if mid[0] < 0.0 {
+            continue;
+        }
         let mid_hue = hue_of(mid);
+        if !initialized {
+            left = mid;
+            right = mid;
+            left_hue = mid_hue;
+            right_hue = mid_hue;
+            initialized = true;
+            continue;
+        }
         if uncut || are_in_cyclic_order(left_hue, mid_hue, right_hue) {
             uncut = false;
             if are_in_cyclic_order(left_hue, target_hue, mid_hue) {

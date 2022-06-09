@@ -1,8 +1,8 @@
 pub mod cam16;
-pub mod cam_solver;
+pub mod hct_solver;
 pub mod viewing_conditions;
 
-pub use self::{cam16::Cam16, cam_solver::solve_to_int, viewing_conditions::ViewingConditions};
+pub use self::{cam16::Cam16, hct_solver::solve_to_int, viewing_conditions::ViewingConditions};
 use crate::utils::color_utils::lstar_from_argb;
 
 /// HCT, hue, chroma, and tone. A color system that provides a perceptually
@@ -48,7 +48,9 @@ impl Hct {
 
 #[cfg(test)]
 mod test {
-    use crate::utils::color_utils::{lstar_from_argb, y_from_lstar};
+    use crate::utils::color_utils::{
+        blue_from_argb, green_from_argb, lstar_from_argb, red_from_argb, y_from_lstar,
+    };
     use approx_eq::assert_approx_eq;
 
     use super::{cam16::Cam16, viewing_conditions::ViewingConditions, Hct};
@@ -58,6 +60,15 @@ mod test {
     const RED: u32 = 0xffff0000;
     const GREEN: u32 = 0xff00ff00;
     const BLUE: u32 = 0xff0000ff;
+
+    fn color_is_on_boundary(argb: u32) -> bool {
+        return red_from_argb(argb) == 0
+            || red_from_argb(argb) == 255
+            || green_from_argb(argb) == 0
+            || green_from_argb(argb) == 255
+            || blue_from_argb(argb) == 0
+            || blue_from_argb(argb) == 255;
+    }
 
     #[test]
     fn conversions_are_reflexive() {
@@ -192,6 +203,16 @@ mod test {
                         "Chroma should be close or less for {}",
                         hct_request_description
                     );
+                    if (hct_color.chroma < chroma as f64 - 2.5) {
+                        assert!(
+                            color_is_on_boundary(hct_color.to_int()) == true,
+                            "HCT request for non-sRGB color should return 
+                              a color on the boundary of the sRGB cube 
+                              for {}, but got {:X} instead",
+                            hct_request_description,
+                            hct_color.to_int()
+                        );
+                    }
                     assert_approx_eq!(hct_color.tone, tone as f64, 0.5);
                 }
             }
