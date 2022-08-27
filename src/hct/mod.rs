@@ -203,7 +203,7 @@ mod test {
                         "Chroma should be close or less for {}",
                         hct_request_description
                     );
-                    if (hct_color.chroma < chroma as f64 - 2.5) {
+                    if hct_color.chroma < chroma as f64 - 2.5 {
                         assert!(
                             color_is_on_boundary(hct_color.to_int()) == true,
                             "HCT request for non-sRGB color should return 
