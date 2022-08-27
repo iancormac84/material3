@@ -4,7 +4,7 @@ use crate::utils::{
     math_utils::signum,
 };
 
-#[derive(Debug, PartialEq, Default)]
+#[derive(Debug, PartialEq, Default, Clone, Copy)]
 pub struct Cam16 {
     /// Like red, orange, yellow, green, etc.
     pub hue: f64,

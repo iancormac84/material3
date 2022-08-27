@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, iter::zip, time::Instant};
 
-use indexmap::IndexMap;
+use std::collections::HashMap;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use super::{
@@ -53,7 +53,7 @@ impl Default for QuantizerWsmeans {
 impl Quantizer for QuantizerWsmeans {
     fn quantize(&mut self, input_pixels: &[u32], max_colors: u32) -> QuantizerResult {
         let mut random = StdRng::seed_from_u64(0x42688);
-        let mut pixel_to_count = IndexMap::new();
+        let mut pixel_to_count = HashMap::new();
         let mut points = vec![];
         let mut pixels = vec![];
         let mut point_count = 0;
@@ -261,7 +261,7 @@ impl Quantizer for QuantizerWsmeans {
             );
         }
 
-        let mut input_pixel_to_cluster_pixel = IndexMap::new();
+        let mut input_pixel_to_cluster_pixel = HashMap::new();
         if self.return_input_pixel_to_cluster_pixel {
             let stopwatch = Instant::now();
             for i in 0..pixels.len() {

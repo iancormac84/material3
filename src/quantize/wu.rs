@@ -1,4 +1,4 @@
-use indexmap::IndexMap;
+use std::collections::HashMap;
 
 use crate::utils::color_utils;
 
@@ -29,7 +29,7 @@ impl Quantizer for QuantizerWu {
         let results = self.create_result(create_cubes_result.result_count as usize);
         QuantizerResult {
             color_to_count: results.iter().map(|e| (*e, 0)).collect(),
-            input_pixel_to_cluster_pixel: IndexMap::new(),
+            input_pixel_to_cluster_pixel: HashMap::new(),
         }
     }
 }
@@ -63,7 +63,7 @@ impl QuantizerWu {
             + g
             + b
     }
-    fn construct_histogram(&mut self, pixels: IndexMap<u32, u32>) {
+    fn construct_histogram(&mut self, pixels: HashMap<u32, u32>) {
         self.weights = [0; Self::TOTAL_SIZE];
         self.moments_r = [0; Self::TOTAL_SIZE];
         self.moments_g = [0; Self::TOTAL_SIZE];
@@ -481,7 +481,7 @@ impl Cube {
 
 #[cfg(test)]
 mod test {
-    use indexmap::IndexSet;
+    use std::collections::HashSet;
 
     use crate::quantize::Quantizer;
 
@@ -548,7 +548,7 @@ mod test {
         let pixels = vec![RED, RED, GREEN, GREEN, GREEN];
         let result = wu.quantize(&pixels, MAX_COLORS);
         let colors: Vec<u32> = result.color_to_count.keys().copied().collect();
-        let color_set: IndexSet<u32> = colors.iter().map(|color| *color).collect();
+        let color_set: HashSet<u32> = colors.iter().map(|color| *color).collect();
         assert_eq!(color_set.len(), 2);
         assert_eq!(colors[0], GREEN);
         assert_eq!(colors[1], RED);
@@ -560,7 +560,7 @@ mod test {
         let pixels = vec![RED, GREEN, BLUE];
         let result = wu.quantize(&pixels, MAX_COLORS);
         let colors: Vec<u32> = result.color_to_count.keys().copied().collect();
-        let color_set: IndexSet<u32> = colors.iter().map(|color| *color).collect();
+        let color_set: HashSet<u32> = colors.iter().map(|color| *color).collect();
         assert_eq!(color_set.len(), 3);
         assert_eq!(colors[0], BLUE);
         assert_eq!(colors[1], RED);

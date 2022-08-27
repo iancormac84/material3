@@ -21,7 +21,7 @@ impl Quantizer for QuantizerCelebi {
 
 #[cfg(test)]
 mod test {
-    use indexmap::IndexSet;
+    use std::collections::HashSet;
 
     use crate::quantize::{celebi::QuantizerCelebi, Quantizer};
 
@@ -72,7 +72,7 @@ mod test {
         let result = celebi.quantize(&vec![RED, GREEN, BLUE], MAX_COLORS);
         let colors: Vec<u32> = result.color_to_count.keys().copied().collect();
 
-        let mut set = IndexSet::new();
+        let mut set = HashSet::new();
         for color in &colors {
             set.insert(*color);
         }
@@ -89,7 +89,7 @@ mod test {
         let result = celebi.quantize(&vec![RED, RED, GREEN, GREEN, GREEN], MAX_COLORS);
         let colors: Vec<u32> = result.color_to_count.keys().copied().collect();
 
-        let mut set = IndexSet::new();
+        let mut set = HashSet::new();
         for color in &colors {
             set.insert(*color);
         }

@@ -1,4 +1,4 @@
-use indexmap::IndexMap;
+use std::collections::HashMap;
 
 pub mod celebi;
 pub mod map;
@@ -16,6 +16,6 @@ pub trait Quantizer {
 }
 
 pub struct QuantizerResult {
-    pub color_to_count: IndexMap<u32, u32>,
-    pub input_pixel_to_cluster_pixel: IndexMap<u32, u32>,
+    pub color_to_count: HashMap<u32, u32>,
+    pub input_pixel_to_cluster_pixel: HashMap<u32, u32>,
 }

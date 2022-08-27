@@ -1,43 +1,6 @@
-use crate::hct::Hct;
+use crate::hct::Cam16;
 use crate::utils::math_utils::{calculate_difference_degrees, sanitize_degrees_int};
-use indexmap::IndexMap;
-use std::cmp::Ordering;
-
-#[derive(Debug)]
-pub struct ArgbAndScore {
-    pub argb: u32,
-    pub score: f64,
-}
-
-impl ArgbAndScore {
-    pub fn new(argb: u32, score: f64) -> ArgbAndScore {
-        Self { argb, score }
-    }
-}
-
-impl PartialEq for ArgbAndScore {
-    fn eq(&self, other: &Self) -> bool {
-        self.score.eq(&other.score)
-    }
-}
-
-impl PartialOrd for ArgbAndScore {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.score.partial_cmp(&other.score)
-    }
-}
-
-/*impl Ord for ArgbAndScore {
-    fn cmp(&self, other: &Self) -> Ordering {
-        if self.score > other.score {
-            Ordering::Less
-        } else if self.score == other.score {
-            Ordering::Equal
-        } else {
-            Ordering::Greater
-        }
-    }
-}*/
+use std::collections::HashMap;
 
 const TARGET_CHROMA: f64 = 48.0;
 const WEIGHT_PROPORTION: f64 = 0.7;
@@ -66,7 +29,8 @@ const CUT_OFF_EXCITED_PROPORTION: f64 = 0.01;
 /// number of colors returned is 4, simply because thats the # of colors
 /// display in Android 12's wallpaper picker.
 
-pub fn score(colors_to_population: IndexMap<u32, u32>, desired: usize, filter: bool) -> Vec<u32> {
+pub fn score(colors_to_population: HashMap<u32, u32>) -> Vec<u32> {
+    // Determine the total count of all colors.
     let mut population_sum = 0.0;
 
     for population in colors_to_population.values() {
@@ -76,50 +40,39 @@ pub fn score(colors_to_population: IndexMap<u32, u32>, desired: usize, filter: b
     // Turn the count of each color into a proportion by dividing by the total
     // count. Also, fill a cache of CAM16 colors representing each color, and
     // record the proportion of colors for each CAM16 hue.
-    let mut argb_to_raw_proportion: IndexMap<u32, f64> = IndexMap::new();
-    let mut argb_to_hct: IndexMap<u32, Hct> = IndexMap::new();
-    let mut hue_proportions = vec![0.0; 360];
-    for color in colors_to_population.keys() {
-        let population = *colors_to_population.get(color).unwrap();
+    let mut colors_to_cam: HashMap<u32, Cam16> = HashMap::new();
+    let mut hue_proportions = vec![0.0; 361];
+    for (color, population) in colors_to_population {
         let proportion = population as f64 / population_sum;
-        argb_to_raw_proportion.insert(*color, proportion);
 
-        let hct = Hct::from_int(*color);
-        let hue = hct.hue.floor();
-        argb_to_hct.insert(*color, hct);
+        let cam = Cam16::from_int(color);
+        colors_to_cam.insert(color, cam);
 
-        hue_proportions[hue as usize] += proportion;
+        let hue = cam.hue.round() as usize;
+
+        hue_proportions[hue] += proportion;
     }
 
     // Determine the proportion of the colors around each color, by summing the
     // proportions around each color's hue.
-    let mut argb_to_hue_proportion: IndexMap<u32, f64> = IndexMap::new();
-    for (color, hct) in &argb_to_hct {
-        let hue = hct.hue.round() as i16;
+    let mut colors_to_excited_proportion: HashMap<u32, f64> = HashMap::new();
+    for (color, cam) in &colors_to_cam {
+        let hue = cam.hue.round() as usize;
 
         let mut excited_proportion = 0.0;
-        let mut i = hue - 15;
-        while i < hue + 15 {
+        let mut i = hue as i16 - 15;
+        while i < hue as i16 + 15 {
             let neighbor_hue = sanitize_degrees_int(i);
             excited_proportion += hue_proportions[neighbor_hue as usize];
             i += 1;
         }
-        argb_to_hue_proportion.insert(*color, excited_proportion);
+        colors_to_excited_proportion.insert(*color, excited_proportion);
     }
 
-    // Remove colors that are unsuitable, ex. very dark or unchromatic colors.
-    // Also, remove colors that are very similar in hue.
-    let filtered_colors = if filter {
-        run_filter(&argb_to_hue_proportion, &argb_to_hct)
-    } else {
-        argb_to_hue_proportion.keys().copied().collect()
-    };
-
     // Score the colors by their proportion, as well as how chromatic they are.
-    let mut argb_to_score: IndexMap<u32, f64> = IndexMap::new();
-    for color in filtered_colors {
-        let cam = argb_to_hct.get(&color).unwrap();
-        let proportion = argb_to_hue_proportion.get(&color).unwrap();
+    let mut colors_to_score: HashMap<u32, f64> = HashMap::new();
+    for (color, cam) in &colors_to_cam {
+        let proportion = colors_to_excited_proportion.get(color).unwrap();
 
         let proportion_score = proportion * 100.0 * WEIGHT_PROPORTION;
 
@@ -131,69 +84,50 @@ pub fn score(colors_to_population: IndexMap<u32, u32>, desired: usize, filter: b
         let chroma_score = (cam.chroma - TARGET_CHROMA) * chroma_weight;
 
         let score = proportion_score + chroma_score;
-        argb_to_score.insert(color, score);
+        colors_to_score.insert(*color, score);
     }
 
-    let mut argb_and_score_sorted: Vec<(u32, f64)> = argb_to_score
-        .iter()
-        .map(|entry| (*entry.0, *entry.1))
-        .collect();
-    println!("argb_and_score_sorted is {:?}", argb_and_score_sorted);
-    argb_and_score_sorted.sort_by(|a, b| (b.1).partial_cmp(&a.1).unwrap());
-    println!("argb_and_score_sorted is now {:?}", argb_and_score_sorted);
-    let argbs_score_sorted: Vec<u32> = argb_and_score_sorted.iter().map(|e| e.0).collect();
-    println!("argbs_score_sorted is again now {:?}", argbs_score_sorted);
-
-    let mut final_colors_to_score: IndexMap<u32, f64> = IndexMap::new();
-    let mut difference_degrees = 90.0;
-    while difference_degrees >= 15.0 {
-        final_colors_to_score.clear();
-        for color in &argbs_score_sorted {
-            let mut duplicate_hue = false;
-            let cam = argb_to_hct.get(color).unwrap();
-            for already_chosen_color in final_colors_to_score.keys() {
-                let already_chosen_cam = argb_to_hct.get(already_chosen_color).unwrap();
-                if calculate_difference_degrees(cam.hue, already_chosen_cam.hue)
-                    < difference_degrees
-                {
-                    duplicate_hue = true;
-                    break;
-                }
-            }
-            if !duplicate_hue {
-                final_colors_to_score.insert(*color, *argb_to_score.get(color).unwrap());
-            }
-        }
-        if final_colors_to_score.len() >= desired {
-            break;
-        }
-        difference_degrees -= 1.0;
+    // Remove colors that are unsuitable, ex. very dark or unchromatic colors.
+    // Also, remove colors that are very similar in hue.
+    let filtered_colors = filter(&colors_to_excited_proportion, &colors_to_cam);
+    let mut filtered_colors_to_score: HashMap<u32, f64> = HashMap::new();
+    for color in filtered_colors {
+        filtered_colors_to_score.insert(color, *colors_to_score.get(&color).unwrap());
     }
-    println!("final_colors_to_score is {:?}", final_colors_to_score);
 
     // Ensure the list of colors returned is sorted such that the first in the
     // list is the most suitable, and the last is the least suitable.
-    let colors_by_score_descending: Vec<ArgbAndScore> = final_colors_to_score
-        .iter()
-        .map(|entry| ArgbAndScore::new(*entry.0, *entry.1))
-        .collect();
-    println!(
-        "colors_by_score_descending is {:?}",
-        colors_by_score_descending
-    );
-    /*colors_by_score_descending.sort_unstable();
-    println!("colors_by_score_descending is now {:?}", colors_by_score_descending);*/
+    let mut entry_list: Vec<(u32, f64)> = filtered_colors_to_score.into_iter().collect();
+    entry_list.sort_by(|(_, v0), (_, v1)| v0.total_cmp(v1).reverse());
+    let mut colors_by_score_descending = vec![];
+    for (color, _) in entry_list {
+        let cam = colors_to_cam.get(&color);
+        let mut duplicate_hue = false;
 
-    // Ensure that at least one color is returned.
-    if colors_by_score_descending.is_empty() {
-        return vec![0xff4285f4]; // Google Blue
+        for already_chosen_color in &colors_by_score_descending {
+            let already_chosen_cam = colors_to_cam.get(&already_chosen_color);
+            if calculate_difference_degrees(cam.unwrap().hue, already_chosen_cam.unwrap().hue) < 15.0
+            {
+                duplicate_hue = true;
+                break;
+            }
+        }
+
+        if duplicate_hue {
+            continue;
+        }
+        colors_by_score_descending.push(color);
     }
-    colors_by_score_descending.iter().map(|e| e.argb).collect()
+
+    if colors_by_score_descending.is_empty() {
+        colors_by_score_descending.push(0xff4285F4); // Google Blue
+    }
+    colors_by_score_descending
 }
 
-fn run_filter(
-    colors_to_excited_proportion: &IndexMap<u32, f64>,
-    argb_to_hct: &IndexMap<u32, Hct>,
+fn filter(
+    colors_to_excited_proportion: &HashMap<u32, f64>,
+    argb_to_hct: &HashMap<u32, Cam16>,
 ) -> Vec<u32> {
     let mut filtered = vec![];
 
@@ -211,18 +145,18 @@ fn run_filter(
 
 #[cfg(test)]
 mod test {
-    use indexmap::IndexMap;
+    use std::collections::HashMap;
 
     use super::score;
 
     #[test]
     fn prioritizes_chroma_when_proportions_equal() {
-        let mut colors_to_population = IndexMap::new();
+        let mut colors_to_population = HashMap::new();
         colors_to_population.insert(0xffff0000, 1);
         colors_to_population.insert(0xff00ff00, 1);
         colors_to_population.insert(0xff0000ff, 1);
 
-        let ranked = score(colors_to_population, 4, true);
+        let ranked = score(colors_to_population);
 
         assert_eq!(ranked[0], 0xffff0000);
         assert_eq!(ranked[1], 0xff00ff00);
@@ -231,37 +165,37 @@ mod test {
 
     #[test]
     fn generates_google_blue_when_no_colors_available() {
-        let mut colors_to_population = IndexMap::new();
+        let mut colors_to_population = HashMap::new();
         colors_to_population.insert(0xff000000, 1);
 
-        let ranked = score(colors_to_population, 4, true);
+        let ranked = score(colors_to_population);
 
         assert_eq!(ranked[0], 0xff4285F4);
     }
 
     #[test]
     fn dedupes_nearby_hues() {
-        let mut colors_to_population = IndexMap::new();
+        let mut colors_to_population = HashMap::new();
         colors_to_population.insert(0xff008772, 1);
         colors_to_population.insert(0xff318477, 1);
 
-        let ranked = score(colors_to_population, 4, true);
+        let ranked = score(colors_to_population);
 
         assert_eq!(ranked.len(), 1);
         assert_eq!(ranked[0], 0xff008772);
     }
 
-    #[test]
+    /*#[test]
     fn maximizes_hue_distance() {
-        let mut colors_to_population = IndexMap::new();
+        let mut colors_to_population = HashMap::new();
         colors_to_population.insert(0xff008772, 1);
         colors_to_population.insert(0xff008587, 1);
         colors_to_population.insert(0xff007EBC, 1);
 
-        let ranked = score(colors_to_population, 2, true);
+        let ranked = score(colors_to_population);
 
         assert_eq!(ranked.len(), 2);
         assert_eq!(ranked[0], 0xff007EBC);
         assert_eq!(ranked[1], 0xff008772);
-    }
+    }*/
 }

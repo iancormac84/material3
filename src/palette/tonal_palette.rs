@@ -1,5 +1,5 @@
 use crate::{error::ArgumentError, hct::Hct};
-use indexmap::{IndexMap, IndexSet};
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
 /// A convenience class for retrieving colors that are constant in hue and
@@ -16,7 +16,7 @@ use std::fmt::Debug;
 pub struct TonalPalette {
     hue: Option<f64>,
     chroma: Option<f64>,
-    cache: IndexMap<u32, u32>,
+    cache: HashMap<u32, u32>,
 }
 
 impl PartialEq for TonalPalette {
@@ -24,8 +24,8 @@ impl PartialEq for TonalPalette {
         if self.hue.is_some() && self.chroma.is_some() {
             self.hue == other.hue && self.chroma == other.chroma
         } else {
-            let self_cache_set = self.cache.values().copied().collect::<IndexSet<u32>>();
-            let other_cache_set = other.cache.values().copied().collect::<IndexSet<u32>>();
+            let self_cache_set = self.cache.values().copied().collect::<HashSet<u32>>();
+            let other_cache_set = other.cache.values().copied().collect::<HashSet<u32>>();
             self_cache_set
                 .difference(&other_cache_set)
                 .cloned()
@@ -43,11 +43,11 @@ impl TonalPalette {
         TonalPalette {
             hue: Some(hue),
             chroma: Some(chroma),
-            cache: IndexMap::new(),
+            cache: HashMap::new(),
         }
     }
 
-    fn from_cache(cache: IndexMap<u32, u32>) -> TonalPalette {
+    fn from_cache(cache: HashMap<u32, u32>) -> TonalPalette {
         TonalPalette {
             cache,
             hue: None,
@@ -77,7 +77,7 @@ impl TonalPalette {
             colors.len(),
             Self::COMMON_SIZE
         );
-        let mut cache = IndexMap::new();
+        let mut cache = HashMap::new();
         for (index, tone) in Self::COMMON_TONES.iter().enumerate() {
             cache.insert(*tone, colors[index]);
         }
