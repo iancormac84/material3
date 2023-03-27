@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, iter::zip, time::Instant};
 
-use std::collections::HashMap;
 use rand::{rngs::StdRng, Rng, SeedableRng};
+use std::collections::HashMap;
 
 use super::{
     point_provider::PointProvider, point_provider_lab::PointProviderLab, Quantizer, QuantizerResult,
